@@ -1,10 +1,17 @@
 import { Telegraf } from 'telegraf';
 import { prisma } from '../infra/prisma.js';
 import { generateSteamGuardCode } from '../core/steam.js';
-import { getOrCreateUser, getUsageForToday, incrementUsage, getResetText } from '../core/usage.js';
+import {
+  getOrCreateUser,
+  getUsageForToday,
+  incrementUsage,
+  getResetText
+} from '../core/usage.js';
 import { mainMenu, backButton } from './keyboards.js';
+import { fetchSallaOrderByReference } from '../modules/salla.js';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
+
 if (!token) {
   throw new Error('Missing TELEGRAM_BOT_TOKEN in .env');
 }
@@ -34,25 +41,30 @@ bot.action('menu:platforms', async (ctx) => {
 
   if (!platform || platform.accounts.length === 0) {
     await ctx.answerCbQuery();
-    await ctx.editMessageText('لا توجد منصات أو حسابات متاحة الآن.', backButton('menu:main'));
+    await ctx.editMessageText(
+      'لا توجد منصات أو حسابات متاحة الآن.',
+      backButton('menu:main')
+    );
     return;
   }
 
   await ctx.answerCbQuery();
 
-  await ctx.editMessageText(
-    'اختر الحساب:',
-    {
-      reply_markup: {
-        inline_keyboard: [
-          ...platform.accounts
-            .filter((a) => a.enabled && a.status === 'active')
-            .map((a) => [{ text: `🔹 ${a.displayName}`, callback_data: `account:${a.id}` }]),
-          [{ text: '⬅️ رجوع', callback_data: 'menu:main' }]
-        ]
-      }
+  await ctx.editMessageText('اختر الحساب:', {
+    reply_markup: {
+      inline_keyboard: [
+        ...platform.accounts
+          .filter((a) => a.enabled && a.status === 'active')
+          .map((a) => [
+            {
+              text: `🔹 ${a.displayName}`,
+              callback_data: `account:${a.id}`
+            }
+          ]),
+        [{ text: '⬅️ رجوع', callback_data: 'menu:main' }]
+      ]
     }
-  );
+  });
 });
 
 bot.action('menu:me', async (ctx) => {
@@ -118,6 +130,7 @@ bot.action('menu:main', async (ctx) => {
 
 bot.action(/^account:(\d+)$/, async (ctx) => {
   const accountId = Number(ctx.match[1]);
+
   pendingOrders.set(ctx.from.id, { accountDbId: accountId });
 
   await ctx.answerCbQuery();
@@ -146,13 +159,56 @@ bot.on('text', async (ctx) => {
     return;
   }
 
+  let sallaPayload: any;
+
+  try {
+    sallaPayload = await fetchSallaOrderByReference(orderNumber);
+  } catch (error) {
+    console.error(error);
+    pendingOrders.delete(ctx.from.id);
+    await ctx.reply('❌ رقم الطلب غير صحيح أو تعذر التحقق منه من سلة.', mainMenu());
+    return;
+  }
+
+  const order =
+    sallaPayload?.data?.[0] ||
+    sallaPayload?.data ||
+    null;
+
+  if (!order) {
+    pendingOrders.delete(ctx.from.id);
+    await ctx.reply('❌ لم يتم العثور على الطلب في سلة.', mainMenu());
+    return;
+  }
+
+  const orderStatus = String(
+    order?.status?.slug ||
+      order?.status ||
+      order?.payment_status ||
+      ''
+  ).toLowerCase();
+
+  const acceptableStatuses = [
+    'paid',
+    'completed',
+    'processing',
+    'under_review',
+    'delivered'
+  ];
+
+  if (!acceptableStatuses.includes(orderStatus)) {
+    pendingOrders.delete(ctx.from.id);
+    await ctx.reply('❌ الطلب غير مكتمل أو غير مدفوع حاليًا.', mainMenu());
+    return;
+  }
+
   let binding = await prisma.orderBinding.findUnique({
     where: { orderNumber }
   });
 
   if (binding && binding.userId !== user.id) {
     pendingOrders.delete(ctx.from.id);
-    await ctx.reply('هذا الطلب مرتبط بمستخدم آخر.', mainMenu());
+    await ctx.reply('❌ هذا الطلب مرتبط بمستخدم آخر.', mainMenu());
     return;
   }
 
@@ -163,7 +219,7 @@ bot.on('text', async (ctx) => {
         userId: user.id,
         platformId: account.platformId,
         accountId: account.id,
-        source: 'manual'
+        source: 'salla'
       }
     });
   }
@@ -173,7 +229,7 @@ bot.on('text', async (ctx) => {
   if (usage.count >= account.dailyLimit) {
     pendingOrders.delete(ctx.from.id);
     await ctx.reply(
-      `وصلت الحد اليومي لهذا الحساب.\nإعادة التصفير بعد: ${getResetText()}`,
+      `⚠️ وصلت الحد اليومي لهذا الحساب.\nإعادة التصفير بعد: ${getResetText()}`,
       mainMenu()
     );
     return;
@@ -181,7 +237,7 @@ bot.on('text', async (ctx) => {
 
   if (!account.sharedSecret) {
     pendingOrders.delete(ctx.from.id);
-    await ctx.reply('لا يوجد shared secret لهذا الحساب.', mainMenu());
+    await ctx.reply('❌ لا يوجد shared secret لهذا الحساب.', mainMenu());
     return;
   }
 
