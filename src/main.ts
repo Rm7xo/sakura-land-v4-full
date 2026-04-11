@@ -4,8 +4,7 @@ import { bot } from './bot/index.js';
 import {
   getSallaAuthUrl,
   exchangeSallaCode,
-  saveSallaTokens,
-  getSavedSallaState
+  saveSallaTokens
 } from './modules/salla.js';
 
 const app = express();
@@ -41,22 +40,15 @@ app.get('/callback', async (req, res) => {
     }
 
     const code = String(req.query.code || '');
-    const state = String(req.query.state || '');
 
     if (!code) {
       return res.status(400).send('Missing code');
     }
 
-    const savedState = await getSavedSallaState();
-
-    if (!state || !savedState || state !== savedState) {
-      return res.status(400).send('Invalid state');
-    }
-
     const tokenData = await exchangeSallaCode(code);
     await saveSallaTokens(tokenData);
 
-    return res.send('Salla connected successfully');
+    return res.send('Salla connected successfully :tada:');
   } catch (error) {
     console.error(error);
     return res.status(500).send('Salla callback failed');
