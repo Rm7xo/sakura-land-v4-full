@@ -3,6 +3,7 @@ import { Markup } from 'telegraf';
 export const mainMenu = () =>
   Markup.inlineKeyboard([
     [Markup.button.callback('🎮 المنصات', 'menu:platforms')],
+    [Markup.button.callback('✅ تفعيل الطلب', 'menu:activate')],
     [Markup.button.callback('👤 معلوماتي', 'menu:me')],
     [Markup.button.callback('🛟 الدعم الفني', 'menu:support')],
     [Markup.button.callback('⭐ تقييمات العملاء', 'menu:reviews')],
