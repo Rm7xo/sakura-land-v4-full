@@ -125,6 +125,18 @@ model BotMedia {
   updatedAt DateTime @updatedAt
 }
 
+model MenuItem {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  text        String
+  actionValue String
+  imageUrl    String?
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model AdminLog {
   id        Int      @id @default(autoincrement())
   adminId   String
