@@ -8,105 +8,141 @@ datasource db {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  telegramId    String         @unique
-  username      String?
-  firstName     String?
-  language      String         @default("ar")
-  isBlocked     Boolean        @default(false)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id         Int      @id @default(autoincrement())
+  telegramId String   @unique
+  username   String?
+  firstName  String?
+  language   String   @default("ar")
+  isBlocked  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  bindings      OrderBinding[]
-  usages        DailyUsage[]
-  tickets       SupportTicket[]
-  reviews       Review[]
+  bindings OrderBinding[]
+  usages   DailyUsage[]
+  tickets  SupportTicket[]
+  reviews  Review[]
 }
 
 model Platform {
-  id          Int       @id @default(autoincrement())
-  key         String    @unique
-  nameAr      String
-  nameEn      String
-  enabled     Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  nameAr    String
+  nameEn    String
+  imageUrl  String?
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  accounts    Account[]
+  accounts Account[]
 }
 
 model Account {
-  id            Int       @id @default(autoincrement())
-  platformId    Int
-  key           String    @unique
-  displayName   String
-  type          String
-  sharedSecret  String?
-  dailyLimit    Int       @default(3)
-  enabled       Boolean   @default(true)
-  status        String    @default("active")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           Int      @id @default(autoincrement())
+  platformId   Int
+  key          String   @unique
+  displayName  String
+  type         String
+  sharedSecret String?
+  dailyLimit   Int      @default(3)
+  imageUrl     String?
+  enabled      Boolean  @default(true)
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  platform      Platform  @relation(fields: [platformId], references: [id])
-  usages        DailyUsage[]
-  bindings      OrderBinding[]
+  platform Platform @relation(fields: [platformId], references: [id])
+  usages   DailyUsage[]
+  bindings OrderBinding[]
 }
 
 model OrderBinding {
-  id           Int       @id @default(autoincrement())
-  orderNumber  String    @unique
-  userId       Int
-  platformId   Int
-  accountId    Int
-  source       String    @default("manual")
-  createdAt    DateTime  @default(now())
+  id          Int      @id @default(autoincrement())
+  orderNumber String   @unique
+  userId      Int
+  platformId  Int
+  accountId   Int
+  source      String   @default("manual")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  user         User      @relation(fields: [userId], references: [id])
-  account      Account   @relation(fields: [accountId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  account Account @relation(fields: [accountId], references: [id])
 }
 
 model DailyUsage {
-  id          Int       @id @default(autoincrement())
-  userId      Int
-  accountId   Int
-  dateKey     String
-  count       Int       @default(0)
-  updatedAt   DateTime  @updatedAt
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  accountId Int
+  dateKey   String
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
 
-  user        User      @relation(fields: [userId], references: [id])
-  account     Account   @relation(fields: [accountId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  account Account @relation(fields: [accountId], references: [id])
 
   @@unique([userId, accountId, dateKey])
 }
 
 model SupportTicket {
-  id          Int       @id @default(autoincrement())
-  userId      Int
-  status      String    @default("open")
-  category    String?
-  message     String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  status    String   @default("open")
+  category  String?
+  message   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user        User      @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Review {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   userId      Int
-  orderNumber String
+  orderNumber String?
   rating      Int
   content     String
-  approved    Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  approved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
-  user        User      @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model AppSetting {
-  id          Int       @id @default(autoincrement())
-  key         String    @unique
-  value       String
-  updatedAt   DateTime  @updatedAt
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model MenuItem {
+  id           Int      @id @default(autoincrement())
+  key          String   @unique
+  text         String
+  actionType   String   @default("callback")
+  actionValue  String
+  imageUrl     String?
+  enabled      Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  parentKey    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model BotMedia {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  title     String?
+  imageUrl  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminLog {
+  id        Int      @id @default(autoincrement())
+  adminId   String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
 }
